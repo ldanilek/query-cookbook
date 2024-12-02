@@ -2,7 +2,7 @@
 
 ## TL;DR
 
-The file [`users.ts`](/convex/users.ts) has a pattern which you can copy to build queries dynamically. You can copy it into a .cursorexamples file to encourage Cursor to use it, or otherwise add it to your workflow.
+The file [`messages.ts`](/convex/messages.ts) has a pattern which you can copy to build queries dynamically. You can copy it into a .cursorexamples file to encourage Cursor to use it, or otherwise add it to your workflow.
 
 ## What's a dynamic query?
 
@@ -261,6 +261,6 @@ There are a few workable solutions:
 
 Solution 0 has the clearest behavior, but it repeats code. Solution 1 is the most succinct, but it loses guarantees that typechecking provides. Solution 2 is recommended by Convex because it keeps all guarantees while keeping the code maintainable and extensible.
 
-To see solutions 1 and 2 in action, check out the [users.ts](/convex/users.ts) file. This example includes all kinds of filtering: regular indexes, text search indexes, and post-filters. The example defines and uses the `defaultIndex` and `defaultOrder` helper functions for type inference, which you are free to copy. If you use an IDE assistant like Cursor or Copilot, you can copy the file to give an example for pattern-matching.
+To see solutions 1 and 2 in action, check out the [messages.ts](/convex/messages.ts) file. This example includes all kinds of filtering: regular indexes, text search indexes, and post-filters. The example defines and uses the `defaultIndex` and `defaultOrder` helper functions for type inference, which you are free to copy. If you use an IDE assistant like Cursor or Copilot, you can copy the file to give an example for pattern-matching.
 
 Once you're using the pattern from solution 2, you can construct dynamic queries at runtime, while maintaining intellisense and using TypeScript to ensure that the final query is valid.
