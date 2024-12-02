@@ -79,6 +79,7 @@ export const listUsers = query({
       orderedQuery = orderedQuery.filter(q => q.eq(q.field("status"), "active"));
     }
 
+    // Stage 5: get results using `.first`, `.unique`, `.collect`, `.take`, or `.paginate`.
     const results = await orderedQuery.take(10);
     return results;
   },

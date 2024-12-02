@@ -204,7 +204,7 @@ let orderedQuery = defaultOrder(indexedQuery);
 
 ## Text search indexes
 
-[Text search indexes](https://docs.convex.dev/search/text-search) have both indexes *and* ordering. The ordering is by relevance, so better text search matches arrive first. So text search encompasses both stages 2 (pick an index) and stage 3 (pick an order). Therefore when using a search index you would apply it to `tableQuery` and construct `orderedQuery`:
+[Text search indexes](https://docs.convex.dev/search/text-search) have both indexes *and* ordering. The ordering is by relevance, so the best text search matches appear first. When query building, text search encompasses both stages 2 (pick an index) and stage 3 (pick an order). Therefore when using a search index you would apply it to `tableQuery` and construct `orderedQuery`:
 
 ```ts
 if (args.bodyFilter !== undefined) {
