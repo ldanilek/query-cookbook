@@ -214,6 +214,6 @@ if (args.bodyFilter !== undefined) {
 
 ## Put it all together
 
-To see the pattern in action, check out the [users.ts](/convex/users.ts) file. This example includes filtering users by their unique token identifier or applying text search on the users' names. The example defines and uses the `defaultIndex` and `defaultOrder` helper functions for type inference, which you are free to copy.
+To see the pattern in action, check out the [users.ts](/convex/users.ts) file. This example includes all kinds of filtering: regular indexes, text search indexes, and post-filters. The example defines and uses the `defaultIndex` and `defaultOrder` helper functions for type inference, which you are free to copy.
 
 Once you're using this pattern, you can construct dynamic queries at runtime, while maintaining intellisense and using TypeScript to ensure that the final query is valid.
