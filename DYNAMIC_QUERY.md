@@ -2,11 +2,24 @@
 
 ## TL;DR
 
-The file [`users.ts`](/convex/users.ts) has a pattern which you can copy to build queries dynamically. You can copy it into a .cursorcontext file to get Cursor to understand it, or otherwise add it to your workflow.
+The file [`users.ts`](/convex/users.ts) has a pattern which you can copy to build queries dynamically. You can copy it into a .cursorexamples file to encourage Cursor to use it, or otherwise add it to your workflow.
 
 ## What's a dynamic query?
 
-Convex stores your data so you can query it in many ways.
+Convex stores your data so you can query it in many ways. This article will assume the following schema:
+
+```ts
+export default defineSchema({
+  messages: defineTable({
+    author: v.string(),
+    conversation: v.string(),
+    body: v.string(),
+    hidden: v.boolean(),
+  }).index("by_author", ["author"])
+  .index("by_conversation", ["conversation"])
+  .searchIndex("by_body", { searchField: "body" }),
+})
+```
 
 Usually you know what you want, so you can write a query to get everything you need, like here you can get the 10 most recent messages with a given author:
 
@@ -32,16 +45,38 @@ if (args.conversationFilter !== undefined) {
 if (args.newestFirst) {
   query = query.order("desc");
 }
+if (args.excludeHidden) {
+  query = query.filter(q => q.eq(q.field("hidden"), false));
+}
 const results = await query.take(10);
 ```
 
 But if you try to write this code in TypeScript, it won't work! This article describes why and gives a recipe for fixing the problem.
 
-## Compare to multiple queries
+## Compare to branching within the query builder
 
-Perhaps the simplest solution is to write multiple queries, or to add branching internally.
+Let's see what happens if you move the conditionals inside the query builder.
 
-Here's how you might do that:
+```ts
+const results = await ctx.db.query("messages")
+  .filter(q => {
+    if (args.authorFilter !== undefined) {
+      return q.eq(q.field("author"), args.authorFilter);
+    }
+    if (args.conversationFilter !== undefined) {
+      return q.eq(q.field("conversation"), args.conversationFilter);
+    }
+    return true;
+  })
+  .order(args.newestFirst ? "desc" : "asc")
+  .take(10);
+```
+
+This works, and I'm happy with the brevity, but there's a big problem: our indexes are gone! This query has become terribly inefficient; now it scans the whole table to find messages by author or conversation, instead of looking them up by index. Let's make sure we [use indexes to do the query efficiently](https://docs.convex.dev/database/indexes/indexes-and-query-perf).
+
+## Solution 0: multiple static queries
+
+Perhaps the simplest solution is to write multiple static queries. Here's how you might do that:
 
 ```ts
 let results;
@@ -86,14 +121,14 @@ sql += " LIMIT 10";
 const results = await executeSql(sql);
 ```
 
-This code looks fine and works at runtime, but there are two subtle issues.
+This code *looks* fine and works at runtime, but there are two subtle issues.
 
 1. String interpolation creates a [SQL injection vulnerability](https://en.wikipedia.org/wiki/SQL_injection)
-2. If both `authorFilter` and `conversationFilter` are provided, you end up with an invalid SQL expression `SELECT * FROM messages WHERE author = 'me' WHERE conversation = 'grouptext' ORDER BY _creationTime LIMIT 10`. There are two `WHERE` clauses. You could fix this by adding logic to turn the second `WHERE` into `AND`, or by doing `else if` instead of a plain `if`.
+2. If both `authorFilter` and `conversationFilter` are provided, you end up with an invalid SQL expression `SELECT * FROM messages WHERE author = 'me' WHERE conversation = 'grouptext' ORDER BY _creationTime LIMIT 10`. There are two `WHERE` clauses.
 
 Convex's query builder prevents both of these issues.
 
-1. Since you're building the query with a builder pattern instead of strings, Convex can escape user input and there's no possibility of an injection attack.
+1. Since you're building the query with a builder instead of strings, Convex can escape user input and there's no possibility of an injection attack.
 2. Convex's query builder ensures that all queries are valid. Every query uses a single index, so you can't call `.withIndex` twice. This is similar to the SQL constraint that each query only has a single `WHERE` keyword, but it's enforced in the TypeScript types.
 
 ## Solution 1: disable typechecks
@@ -110,10 +145,10 @@ if (args.conversationFilter !== undefined) {
 }
 ```
 
-if both `authorFilter` and `conversationFilter` exist, the query will have two `.withIndex` method calls, which is invalid. And now we can see our first workaround: disable typechecking.
+If both `authorFilter` and `conversationFilter` exist, the query will have two `.withIndex` method calls, which is invalid. And now we can see our first workaround: disable typechecking.
 
 ```ts
-// If query is any, you can do whatever you want with it.
+// If query has type `any`, you can do whatever you want with it.
 let query: any = ctx.db.query("messages");
 if (args.authorFilter !== undefined) {
   query = query.withIndex("by_author", q=>q.eq("author", args.authorFilter));
@@ -123,7 +158,7 @@ if (args.conversationFilter !== undefined) {
 }
 ```
 
-You can disable typechecking by `let query: any` or by using JavaScript instead of TypeScript. However, that's an unsatisfying answer. We *want* all of the guarantees Convex enforces, and we want intellisense to work as well.
+You can disable typechecking by `let query: any` or by using JavaScript instead of TypeScript. However, that's an unsatisfying answer. We *want* all of the guarantees Convex enforces. We want compile-time guarantees that each query uses a single index, and we want intellisense to work as well.
 
 ## Solution 2: build query in stages
 
@@ -167,7 +202,7 @@ Now we've separated out the stages of building a dynamic query in Convex, while 
 1. Where does the type `T` come from?
 2. What if you want to use a text search index `.withSearchIndex`?
 
-## Type parameter inference
+### Type parameter inference
 
 In the example above, you can see a type parameter `T` that wasn't defined anywhere:
 
@@ -202,7 +237,11 @@ let indexedQuery = defaultIndex(tableQuery);
 let orderedQuery = defaultOrder(indexedQuery);
 ```
 
-## Text search indexes
+<footnote>
+The helper functions can also guide LLMs to follow the pattern. ChatGPT *really* likes to say `indexedQuery = indexedQuery.withIndex(...)` no matter how many times I told it to do `indexedQuery = tableQuery.withIndex(...)`.
+</footnote>
+
+### Text search indexes
 
 [Text search indexes](https://docs.convex.dev/search/text-search) have both indexes *and* ordering. The ordering is by relevance, so the best text search matches appear first. When query building, text search encompasses both stages 2 (pick an index) and stage 3 (pick an order). Therefore when using a search index you would apply it to `tableQuery` and construct `orderedQuery`:
 
@@ -214,6 +253,14 @@ if (args.bodyFilter !== undefined) {
 
 ## Put it all together
 
-To see the pattern in action, check out the [users.ts](/convex/users.ts) file. This example includes all kinds of filtering: regular indexes, text search indexes, and post-filters. The example defines and uses the `defaultIndex` and `defaultOrder` helper functions for type inference, which you are free to copy.
+There are a few workable solutions:
 
-Once you're using this pattern, you can construct dynamic queries at runtime, while maintaining intellisense and using TypeScript to ensure that the final query is valid.
+0. Write multiple static queries instead of a single dynamic one.
+1. Disable typechecks while building your dynamic query.
+2. Build the dynamic query in stages.
+
+Solution 0 has the clearest behavior, but it repeats code. Solution 1 is the most succinct, but it loses guarantees that typechecking provides. Solution 2 is recommended by Convex because it keeps all guarantees while keeping the code maintainable and extensible.
+
+To see solutions 1 and 2 in action, check out the [users.ts](/convex/users.ts) file. This example includes all kinds of filtering: regular indexes, text search indexes, and post-filters. The example defines and uses the `defaultIndex` and `defaultOrder` helper functions for type inference, which you are free to copy. If you use an IDE assistant like Cursor or Copilot, you can copy the file to give an example for pattern-matching.
+
+Once you're using the pattern from solution 2, you can construct dynamic queries at runtime, while maintaining intellisense and using TypeScript to ensure that the final query is valid.

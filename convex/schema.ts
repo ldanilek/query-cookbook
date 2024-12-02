@@ -2,10 +2,12 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
-  users: defineTable({
-    name: v.string(),
-    tokenIdentifier: v.string(),
-    status: v.union(v.literal("active"), v.literal("inactive")),
-  }).index("by_token", ["tokenIdentifier"])
-  .searchIndex("by_name", { searchField: "name" }),
-});
+  messages: defineTable({
+    author: v.string(),
+    conversation: v.string(),
+    body: v.string(),
+    hidden: v.boolean(),
+  }).index("by_author", ["author"])
+  .index("by_conversation", ["conversation"])
+  .searchIndex("by_body", { searchField: "body" }),
+})
