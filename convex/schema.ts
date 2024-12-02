@@ -7,5 +7,5 @@ export default defineSchema({
     tokenIdentifier: v.string(),
     status: v.union(v.literal("active"), v.literal("inactive")),
   }).index("by_token", ["tokenIdentifier"])
-  .index("by_name", ["name"]),
+  .searchIndex("by_name", { searchField: "name" }),
 });
