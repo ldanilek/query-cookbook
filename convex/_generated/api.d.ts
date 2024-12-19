@@ -13,6 +13,7 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
+import type * as createMessage from "../createMessage.js";
 import type * as dynamicQuery from "../dynamicQuery.js";
 
 /**
@@ -24,6 +25,7 @@ import type * as dynamicQuery from "../dynamicQuery.js";
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  createMessage: typeof createMessage;
   dynamicQuery: typeof dynamicQuery;
 }>;
 export declare const api: FilterApi<

@@ -57,7 +57,7 @@ function ListMessages() {
 }
 
 function CreateMessage() {
-  const createMessage = useMutation(api.dynamicQuery.createMessage);
+  const createMessage = useMutation(api.createMessage.default);
 
   async function handleCreateUser(event: FormEvent) {
     event.preventDefault();
