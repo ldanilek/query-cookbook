@@ -2,7 +2,8 @@
 
 ## TL;DR
 
-The file [dynamicQuery.ts](/convex/dynamicQuery.ts) has a pattern which you can copy to build queries dynamically. You can copy it into a .cursorrules file to encourage Cursor to use it, or otherwise add it to your workflow.
+The file [dynamicQuery.ts](https://github.com/ldanilek/query-cookbook/blob/main/convex/dynamicQuery.ts) has a pattern which you can copy to build Convex queries dynamically.
+You can copy it into a `.cursorrules` file to encourage Cursor to use it, or otherwise add it to your workflow.
 
 ## What's a dynamic query?
 
@@ -32,7 +33,8 @@ const results = await ctx.db.query("messages")
 
 But sometimes you want to build the query dynamically, where parts of the query only apply in certain circumstances. e.g. You want a single query that can find messages by author, or by conversation, or with no filters at all. And once you've added the filters, you sometimes want to order ascending and sometimes descending.
 
-Convex queries are plain TypeScript, so you want to build up a query like so:
+Convex queries are plain TypeScript, so you want to build up a `query` variable
+like so:
 
 ```ts
 let query = ctx.db.query("messages");
@@ -57,7 +59,7 @@ const results = await query.take(10);
 This code works in JavaScript because there are no typechecks, but if you try to
 write this code in TypeScript, it won't work! This article describes why and gives a recipe for fixing the problem.
 
-## Why doesn't this work?
+## Why doesn't a single `query` variable work?
 
 Convex queries are constrained by TypeScript to be valid, following simple rules:
 
@@ -68,14 +70,11 @@ Convex queries are constrained by TypeScript to be valid, following simple rules
 In the above example, if `args.authorFilter` and `args.conversationFilter` are both provided,
 the constructed query will have two `.withIndex` method calls.
 
-Similarly, before the `if (args.newestFirst)` condition, `query.order("desc")`
-is allowed, but after the condition it's not because there might already be an order.
-This is why the TypeScript compiler doesn't like using the single variable `query`
-for all stages of building the query.
+A Convex query keeps all of the necessary information in its type. On the initial table query -- `ctx.db.query("messages")` -- you can apply an index. But after you've applied an index, you can no longer apply another, so the query must change type. Similarly, you can't do `.order("desc").order("asc")` so applying an order also changes the query type.
 
-Convex queries keep all of the necessary information in its type. On the initial table query -- `ctx.db.query("messages")` -- you can apply an index. But after you've applied an index, you can no longer apply another, so the query must change type. Similarly, you can't do `.order("desc").order("asc")` so applying an order also changes the query type.
+In TypeScript a variable can't change type conditionally, so you can't use a single `query` variable for all stages of building the query.
 
-## Solution: build query in stages
+## Solution: build query in stages with multiple variables
 
 The solution is to build the query with a new variable and type for each stage.
 
@@ -91,7 +90,7 @@ we can do, but they don't change the query type:
 
 ```ts
 // Stage 1: Pick the table to query.
-const tableQuery = ctx.db.query("messages");
+const tableQuery: QueryInitializer<DataModel["messages"]> = ctx.db.query("messages");
 
 // Stage 2: Pick the index to use.
 let indexedQuery: Query<DataModel["messages"]> = tableQuery;
@@ -128,7 +127,8 @@ while appeasing the TypeScript gods to ensure that the query is always valid.
 
 ## Put it all together
 
-The [dynamicQuery.ts](/convex/dynamicQuery.ts) file has the full example, along
+The [dynamicQuery.ts](https://github.com/ldanilek/query-cookbook/blob/main/convex/dynamicQuery.ts)
+file has the full example, along
 with comparisons to untyped JavaScript and an equivalent SQL query builder.
 
 When building a Convex app, you can usually use fixed queries whose structure

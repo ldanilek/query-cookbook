@@ -1,12 +1,13 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
-import { GenericTableInfo, OrderedQuery, Query, QueryInitializer } from "convex/server";
+import { query } from "./_generated/server";
+import { OrderedQuery, Query, QueryInitializer } from "convex/server";
 import { DataModel } from "./_generated/dataModel";
 
 // Example of a dynamic query, where the query does different things depending on the arguments.
-// In general it returns 10 messages, but based on the arguments it will filter by either author, conversation, or body.
+// In general it returns 10 messages, but based on the arguments it will filter by the index on author, conversation, or body.
 // It also supports ordering in either direction (newest first or oldest first), and conditionally excluding hidden messages.
 // This pattern is recommended whenever you're building a query dynamically.
+// The key point of the pattern is there are multiple stages, and each stage changes the type of the query, so there are three variables to represent the query at each stage.
 export const listMessages = query({
   args: {
     authorFilter: v.optional(v.string()),
@@ -19,7 +20,7 @@ export const listMessages = query({
     // Stage 1: Pick the table to query.
     // tableQuery has type QueryInitializer which means it has a table but no
     // index or order applied.
-    const tableQuery = ctx.db.query("messages");
+    const tableQuery: QueryInitializer<DataModel["messages"]> = ctx.db.query("messages");
 
     // Stage 2: Pick the index to use.
     // The new variable with type coercion is necessary so `indexedQuery` can be
@@ -49,11 +50,11 @@ export const listMessages = query({
       orderedQuery = tableQuery.withSearchIndex("by_body", q => q.search("body", args.bodyFilter!));
     }
 
-    // Stage 4: Apply filters.
+    // Post-filter: Apply filters.
     if (args.excludeHidden) {
+      orderedQuery = orderedQuery.filter(q => q.eq(q.field("hidden"), false));
       // You can also apply TypeScript filters, via `filter` from the convex-helpers library:
       // https://stack.convex.dev/complex-filters-in-convex
-      orderedQuery = orderedQuery.filter(q => q.eq(q.field("hidden"), false));
     }
 
     // Stage 5: get results using `.first`, `.unique`, `.collect`, `.take`, or `.paginate`.
